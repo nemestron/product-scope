@@ -272,6 +272,9 @@
     }
     
     // Check for specific meta tags
+    const viewport = document.querySelector('meta[name=\"viewport\"]');
+    const themeColor = document.querySelector('meta[name=\"theme-color\"]');
+    
     // PWA detection
     if (document.querySelector('link[rel=\"manifest\"]') || 
         document.querySelector('meta[name=\"apple-mobile-web-app-capable\"]')) {
@@ -557,5 +560,336 @@ export const getAccessibilityScore = () => {
       totalInputs: inputs.length,
       inputsWithoutLabels
     }
+  };
+};
+
+// NEW: Performance Metrics
+export const getPerformanceMetrics = () => {
+  const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+  const resources = performance.getEntriesByType('resource');
+  
+  // Calculate page load time
+  const loadTime = navigation ? navigation.loadEventEnd - navigation.navigationStart : 0;
+  
+  // Calculate total resource size
+  const totalSize = resources.reduce((acc, resource) => {
+    return acc + ((resource as any).transferSize || 0);
+  }, 0);
+  
+  // Count resources by type
+  const resourceCount = {
+    scripts: resources.filter(r => r.name.includes('.js')).length,
+    stylesheets: resources.filter(r => r.name.includes('.css')).length,
+    images: resources.filter(r => r.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)).length,
+    fonts: resources.filter(r => r.name.match(/\.(woff|woff2|ttf|eot)$/i)).length
+  };
+  
+  // Get DOM complexity
+  const domNodes = document.querySelectorAll('*').length;
+  const maxDepth = getMaxDOMDepth(document.body);
+  
+  return {
+    loadTime: Math.round(loadTime),
+    totalSize: Math.round(totalSize / 1024), // Convert to KB
+    resourceCount,
+    domNodes,
+    maxDepth,
+    grade: getPerformanceGrade(loadTime, totalSize, domNodes)
+  };
+};
+
+// Helper function to get max DOM depth
+const getMaxDOMDepth = (element: Element, depth = 0): number => {
+  if (element.children.length === 0) return depth;
+  return Math.max(...Array.from(element.children).map(child => getMaxDOMDepth(child, depth + 1)));
+};
+
+// Helper function to grade performance
+const getPerformanceGrade = (loadTime: number, size: number, domNodes: number): string => {
+  let score = 100;
+  
+  // Score based on load time (under 2s is good)
+  if (loadTime > 2000) score -= Math.min(40, (loadTime - 2000) / 100);
+  else if (loadTime > 1000) score -= (loadTime - 1000) / 100;
+  
+  // Score based on size (under 1MB is good)
+  if (size > 1024) score -= Math.min(30, (size - 1024) / 100);
+  else if (size > 512) score -= (size - 512) / 100;
+  
+  // Score based on DOM nodes (under 1500 is good)
+  if (domNodes > 1500) score -= Math.min(30, (domNodes - 1500) / 100);
+  else if (domNodes > 1000) score -= (domNodes - 1000) / 100;
+  
+  if (score >= 90) return 'A';
+  if (score >= 80) return 'B';
+  if (score >= 70) return 'C';
+  if (score >= 60) return 'D';
+  return 'F';
+};
+
+// NEW: Mobile Responsiveness Check
+export const getMobileResponsiveness = () => {
+  const issues: Array<{ type: string; description: string }> = [];
+  let score = 100;
+  
+  // Check for viewport meta tag
+  const viewport = document.querySelector('meta[name=\"viewport\"]');
+  if (!viewport) {
+    issues.push({
+      type: 'Missing Viewport',
+      description: 'No viewport meta tag found'
+    });
+    score -= 30;
+  }
+  
+  // Check for responsive images
+  const images = document.querySelectorAll('img');
+  const responsiveImages = Array.from(images).filter(img => {
+    const hasSrcset = img.hasAttribute('srcset');
+    const hasSizes = img.hasAttribute('sizes');
+    const hasResponsiveClass = img.className && img.className.includes('img-responsive');
+    return hasSrcset || hasSizes || hasResponsiveClass;
+  });
+  
+  if (responsiveImages.length < images.length * 0.5) {
+    issues.push({
+      type: 'Non-responsive Images',
+      description: ${images.length - responsiveImages.length} images lack responsive attributes
+    });
+    score -= 20;
+  }
+  
+  // Check for media queries in CSS
+  const styleSheets = Array.from(document.styleSheets);
+  let hasMediaQueries = false;
+  
+  for (const sheet of styleSheets) {
+    try {
+      const rules = sheet.cssRules || sheet.rules;
+      if (rules) {
+        for (const rule of rules) {
+          if ((rule as any).media) {
+            hasMediaQueries = true;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      // Cross-origin stylesheets might throw errors
+    }
+    if (hasMediaQueries) break;
+  }
+  
+  if (!hasMediaQueries) {
+    issues.push({
+      type: 'No Media Queries',
+      description: 'CSS lacks media queries for responsive design'
+    });
+    score -= 25;
+  }
+  
+  // Check for flexible layouts
+  const hasFlexbox = document.querySelector('[style*=\"display: flex\"], [class*=\"flex\"]') !== null;
+  const hasGrid = document.querySelector('[style*=\"display: grid\"], [class*=\"grid\"]') !== null;
+  
+  if (!hasFlexbox && !hasGrid) {
+    issues.push({
+      type: 'Inflexible Layout',
+      description: 'No modern layout systems (Flexbox/Grid) detected'
+    });
+    score -= 25;
+  }
+  
+  return {
+    score: Math.max(0, score),
+    issues,
+    hasViewport: !!viewport,
+    responsiveImageCount: responsiveImages.length,
+    totalImages: images.length,
+    hasMediaQueries,
+    hasModernLayout: hasFlexbox || hasGrid
+  };
+};
+
+// NEW: Security Headers Analysis
+export const getSecurityAnalysis = () => {
+  const issues: Array<{ type: string; description: string; severity: 'low' | 'medium' | 'high' }> = [];
+  let score = 100;
+  
+  // Check for HTTPS
+  const isHTTPS = location.protocol === 'https:';
+  if (!isHTTPS) {
+    issues.push({
+      type: 'No HTTPS',
+      description: 'Site not served over HTTPS',
+      severity: 'high'
+    });
+    score -= 40;
+  }
+  
+  // Check for CSP (Content Security Policy)
+  const cspMeta = document.querySelector('meta[http-equiv=\"Content-Security-Policy\"]');
+  if (!cspMeta) {
+    issues.push({
+      type: 'Missing CSP',
+      description: 'No Content Security Policy header detected',
+      severity: 'medium'
+    });
+    score -= 20;
+  }
+  
+  // Check for mixed content
+  const resources = document.querySelectorAll('img, script, link, iframe');
+  const mixedContent = Array.from(resources).filter(resource => {
+    const src = (resource as any).src || (resource as any).href;
+    return src && src.startsWith('http:') && isHTTPS;
+  });
+  
+  if (mixedContent.length > 0) {
+    issues.push({
+      type: 'Mixed Content',
+      description: ${mixedContent.length} resources loaded over HTTP on HTTPS page,
+      severity: 'medium'
+    });
+    score -= 15;
+  }
+  
+  // Check for insecure forms
+  const forms = document.querySelectorAll('form[action]');
+  const insecureForms = Array.from(forms).filter(form => {
+    const action = form.getAttribute('action');
+    return action && action.startsWith('http:');
+  });
+  
+  if (insecureForms.length > 0) {
+    issues.push({
+      type: 'Insecure Forms',
+      description: ${insecureForms.length} forms submit to HTTP endpoints,
+      severity: 'high'
+    });
+    score -= 25;
+  }
+  
+  // Check for external scripts from HTTP
+  const scripts = document.querySelectorAll('script[src]');
+  const insecureScripts = Array.from(scripts).filter(script => {
+    const src = script.getAttribute('src');
+    return src && src.startsWith('http:');
+  });
+  
+  if (insecureScripts.length > 0) {
+    issues.push({
+      type: 'Insecure Scripts',
+      description: ${insecureScripts.length} scripts loaded from HTTP endpoints,
+      severity: 'high'
+    });
+    score -= 20;
+  }
+  
+  return {
+    score: Math.max(0, score),
+    issues,
+    isHTTPS,
+    hasCSP: !!cspMeta,
+    mixedContentCount: mixedContent.length,
+    insecureFormCount: insecureForms.length,
+    insecureScriptCount: insecureScripts.length
+  };
+};
+
+// NEW: Social Media Integration Detection
+export const getSocialMediaIntegration = () => {
+  const integrations: Array<{ platform: string; type: string; found: boolean }> = [];
+  
+  // Social media platforms to check
+  const platforms = [
+    { name: 'Facebook', patterns: ['facebook.com', 'fbclid=', 'facebook pixel', 'fbq'] },
+    { name: 'Twitter', patterns: ['twitter.com', 't.co', 'twitter-widget', 'twtr'] },
+    { name: 'Instagram', patterns: ['instagram.com', 'instagr.am', 'instagram embed'] },
+    { name: 'LinkedIn', patterns: ['linkedin.com', 'linkedin-share', 'lnkd.in'] },
+    { name: 'YouTube', patterns: ['youtube.com', 'youtu.be', 'youtube-embed', 'ytplayer'] },
+    { name: 'TikTok', patterns: ['tiktok.com', 'tiktok-embed', 'tt-embed'] },
+    { name: 'Pinterest', patterns: ['pinterest.com', 'pinit.js', 'pinterest-share'] },
+    { name: 'Reddit', patterns: ['reddit.com', 'reddit-embed', 'reddit-button'] },
+    { name: 'Discord', patterns: ['discord.com', 'discord-widget', 'discord-embed'] },
+    { name: 'WhatsApp', patterns: ['wa.me', 'whatsapp', 'whatsapp-share'] }
+  ];
+  
+  // Check in scripts
+  const scripts = Array.from(document.scripts);
+  const scriptContent = scripts.map(s => s.src + s.innerHTML).join(' ').toLowerCase();
+  
+  // Check in meta tags
+  const metaTags = Array.from(document.querySelectorAll('meta'));
+  const metaContent = metaTags.map(m => (m.getAttribute('property') || '') + (m.getAttribute('name') || '') + (m.getAttribute('content') || '')).join(' ').toLowerCase();
+  
+  // Check in page content
+  const pageContent = document.body.innerHTML.toLowerCase();
+  
+  platforms.forEach(platform => {
+    let found = false;
+    let type = '';
+    
+    // Check for different types of integration
+    if (platform.patterns.some(pattern => scriptContent.includes(pattern))) {
+      found = true;
+      type = 'Script Integration';
+    }
+    
+    if (platform.patterns.some(pattern => metaContent.includes(pattern))) {
+      found = true;
+      type = 'Meta Tag Integration';
+    }
+    
+    if (platform.patterns.some(pattern => pageContent.includes(pattern))) {
+      found = true;
+      type = 'Content Integration';
+    }
+    
+    // Check for share buttons
+    const shareButtons = document.querySelectorAll([class*=""], [data-platform=""]);
+    if (shareButtons.length > 0) {
+      found = true;
+      type = 'Share Buttons';
+    }
+    
+    // Check for embed widgets
+    const embedWidgets = document.querySelectorAll(iframe[src*=""], div[class*=""]);
+    if (embedWidgets.length > 0) {
+      found = true;
+      type = 'Embed Widgets';
+    }
+    
+    if (found) {
+      integrations.push({
+        platform: platform.name,
+        type,
+        found: true
+      });
+    }
+  });
+  
+  // Check for general social sharing meta tags
+  const ogTags = {
+    'og:title': document.querySelector('meta[property="og:title"]'),
+    'og:description': document.querySelector('meta[property="og:description"]'),
+    'og:image': document.querySelector('meta[property="og:image"]'),
+    'og:url': document.querySelector('meta[property="og:url"]'),
+    'twitter:card': document.querySelector('meta[name="twitter:card"]'),
+    'twitter:title': document.querySelector('meta[name="twitter:title"]'),
+    'twitter:description': document.querySelector('meta[name="twitter:description"]'),
+    'twitter:image': document.querySelector('meta[name="twitter:image"]')
+  };
+  
+  const hasOpenGraph = Object.values(ogTags).some(tag => tag !== null);
+  const hasTwitterCards = Object.keys(ogTags).filter(key => key.startsWith('twitter:')).some(key => ogTags[key as keyof typeof ogTags] !== null);
+  
+  return {
+    integrations,
+    totalPlatforms: integrations.length,
+    hasOpenGraph,
+    hasTwitterCards,
+    shareButtonCount: document.querySelectorAll('[class*="share"], [data-share]').length,
+    socialScore: Math.min(100, integrations.length * 10)
   };
 };

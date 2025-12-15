@@ -1,4 +1,12 @@
-﻿import { detectTechStack, getSEOInsights, getAccessibilityScore } from '../utils/analyzer';
+﻿import { 
+  detectTechStack, 
+  getSEOInsights, 
+  getAccessibilityScore,
+  getPerformanceMetrics,
+  getMobileResponsiveness,
+  getSecurityAnalysis,
+  getSocialMediaIntegration
+} from '../utils/analyzer';
 
 // Listen for messages from the popup
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
@@ -7,11 +15,19 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       const tech = detectTechStack();
       const seo = getSEOInsights();
       const accessibility = getAccessibilityScore();
+      const performance = getPerformanceMetrics();
+      const mobile = getMobileResponsiveness();
+      const security = getSecurityAnalysis();
+      const social = getSocialMediaIntegration();
       
       sendResponse({
         tech,
         seo,
         accessibility,
+        performance,
+        mobile,
+        security,
+        social,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -20,7 +36,11 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
         tech: null,
         seo: null,
-        accessibility: null
+        accessibility: null,
+        performance: null,
+        mobile: null,
+        security: null,
+        social: null
       });
     }
   }
@@ -30,4 +50,4 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 });
 
 // Notify that content script is loaded
-console.log('ProductScope content script loaded');
+console.log('ProductScope content script loaded with advanced analysis');
