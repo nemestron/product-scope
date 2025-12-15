@@ -1,0 +1,15 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-black text-white font-sans;
+  }
+  .tab-active {
+    @apply border-b-white;
+  }
+  .tab-inactive {
+    @apply border-b-gray-800 hover:border-b-gray-700;
+  }
+}
