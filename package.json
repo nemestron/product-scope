@@ -1,12 +1,11 @@
-{
+﻿{
   "name": "product-scope",
-  "private": true,
   "version": "1.0.0",
-  "type": "module",
+  "description": "Instant website analysis: tech stack, SEO insights, and accessibility scores",
+  "main": "dist/manifest.json",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -14,14 +13,28 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.268",
+    "@types/chrome": "^0.0.246",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^4.2.1",
-    "eslint": "^8.57.0",
-    "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-plugin-react-refresh": "^0.4.6",
-    "typescript": "^5.2.2",
-    "vite": "^5.2.0"
-  }
+    "typescript": "^5.3.3",
+    "vite": "^5.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nemestron/product-scope.git"
+  },
+  "keywords": [
+    "chrome-extension",
+    "react",
+    "typescript",
+    "web-analysis",
+    "tech-stack",
+    "seo",
+    "accessibility",
+    "productivity",
+    "developer-tools"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
 }
